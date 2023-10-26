@@ -3,10 +3,13 @@ package main
 import (
 	"context"
 	"encoding/base64"
+	"encoding/json"
 	"fmt"
+	"io"
 	"log"
 	"math/big"
 	"net/http"
+	"os"
 
 	"github.com/gin-gonic/gin"
 	"github.com/xssnick/tonutils-go/address"
@@ -16,6 +19,7 @@ import (
 )
 
 const configUrl = "https://ton.org/global.config.json"
+const configAddresses = "config_addresses.json"
 
 type Transaction struct {
 	From   string
@@ -24,7 +28,22 @@ type Transaction struct {
 	Hash   string
 }
 
+type AddressRecords struct {
+	Name   string `json:"name"`
+	IsScam bool   `json:"isScam"`
+}
+
+type AddressName map[string]AddressRecords
+
 func main() {
+	configAddressesGetter()
+	client := liteclient.NewConnectionPool()
+
+	err := client.AddConnectionsFromConfigUrl(context.Background(), configUrl)
+	if err != nil {
+		log.Fatal(err)
+	}
+
 	r := gin.Default()
 
 	r.Static("/static", "./static")
@@ -42,7 +61,7 @@ func main() {
 
 		hashMap := make(map[string]bool)
 		uniqueTransactions := make([]Transaction, 0, transAmount)
-		api, ctx, b := client()
+		api, ctx, b := fetchLastBlock(client)
 
 		getTransactions(api, ctx, b, &uniqueTransactions, hashMap, walletAdress, depth, transAmount)
 
@@ -51,13 +70,29 @@ func main() {
 	r.Run(":3000")
 }
 
-func client() (ton.APIClientWrapped, context.Context, *tlb.BlockInfo) {
-	client := liteclient.NewConnectionPool()
-
-	err := client.AddConnectionsFromConfigUrl(context.Background(), configUrl)
+func configAddressesGetter() {
+	jsonFile, err := os.Open(configAddresses)
 	if err != nil {
 		log.Fatal(err)
 	}
+	defer jsonFile.Close()
+
+	byteAdresses, err := io.ReadAll(jsonFile)
+	if err != nil {
+		log.Fatal(err)
+	}
+	var addresses AddressName
+	//if err := json.Unmarshal(jsonFile, &addresses); err != nil {
+	//	log.Fatal(err)
+	//}
+	json.Unmarshal(byteAdresses, &addresses)
+	for i := 0; i < 10; i++ {
+		fmt.Println(addresses)
+	}
+}
+
+func fetchLastBlock(client *liteclient.ConnectionPool) (ton.APIClientWrapped, context.Context, *tlb.BlockInfo) {
+
 	api := ton.NewAPIClient(client, ton.ProofCheckPolicyFast).WithRetry()
 	ctx := client.StickyContext(context.Background())
 
@@ -135,6 +170,7 @@ func getAddressTransactions(api ton.APIClientWrapped, ctx context.Context, b *tl
 			fmt.Println("Invalid amount")
 			continue
 		}
+
 		intValue := amount.Int64()
 		floatValue := float64(intValue) / 1e9
 		transactions = append(transactions, Transaction{
