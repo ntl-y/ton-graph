@@ -33,10 +33,11 @@ type AddressRecords struct {
 	IsScam bool   `json:"isScam"`
 }
 
-type AddressName map[string]AddressRecords
+//type AddressName map[string]AddressRecords
 
 func main() {
 	configAddressesGetter()
+
 	client := liteclient.NewConnectionPool()
 
 	err := client.AddConnectionsFromConfigUrl(context.Background(), configUrl)
@@ -72,22 +73,25 @@ func main() {
 
 func configAddressesGetter() {
 	jsonFile, err := os.Open(configAddresses)
+	defer jsonFile.Close()
 	if err != nil {
 		log.Fatal(err)
 	}
-	defer jsonFile.Close()
 
 	byteAdresses, err := io.ReadAll(jsonFile)
 	if err != nil {
 		log.Fatal(err)
 	}
-	var addresses AddressName
-	//if err := json.Unmarshal(jsonFile, &addresses); err != nil {
-	//	log.Fatal(err)
-	//}
-	json.Unmarshal(byteAdresses, &addresses)
-	for i := 0; i < 10; i++ {
-		fmt.Println(addresses)
+
+	//var addresses AddressName
+	var m map[string]struct{ Data AddressRecords }
+
+	if err := json.Unmarshal(byteAdresses, &m); err != nil {
+		log.Fatal(err)
+	}
+
+	for k, v := range m {
+		fmt.Printf("Address: %s, its data: %#v", k, v)
 	}
 }
 
