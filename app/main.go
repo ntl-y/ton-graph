@@ -19,7 +19,7 @@ import (
 )
 
 const configUrl = "https://ton.org/global.config.json"
-const configAddresses = "config_addresses.json"
+const configFile = "config_addresses.json"
 
 type Transaction struct {
 	From   string
@@ -32,8 +32,6 @@ type AddressRecords struct {
 	Name   string `json:"name"`
 	IsScam bool   `json:"isScam"`
 }
-
-//type AddressName map[string]AddressRecords
 
 func main() {
 	configAddressesGetter()
@@ -72,7 +70,7 @@ func main() {
 }
 
 func configAddressesGetter() {
-	jsonFile, err := os.Open(configAddresses)
+	jsonFile, err := os.Open(configFile)
 	defer jsonFile.Close()
 	if err != nil {
 		log.Fatal(err)
